@@ -1,0 +1,52 @@
+name: Build CloakV4 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract source ZIP
+        run: |
+          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          if [ -z "$ZIP" ]; then
+            echo "Upload the source ZIP to the repository root first."
+            exit 1
+          fi
+          mkdir -p /tmp/cloak-source
+          unzip -q "$ZIP" -d /tmp/cloak-source
+          cp -a /tmp/cloak-source/. "$GITHUB_WORKSPACE"/
+          test -f android/gradlew
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android tools
+        run: |
+          sdkmanager "platforms;android-33" "build-tools;33.0.2" "ndk;26.2.11394342" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.2.11394342" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CloakV4-debug-apk
+          path: android/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 7
